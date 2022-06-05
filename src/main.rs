@@ -10,9 +10,9 @@ use magic_crypt::MagicCryptTrait;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    for argument in &args {
-        println!("argument: {}", argument);
-    }
+    // for argument in &args {
+    //     println!("argument: {}", argument);
+    // }
     if args.len() >= 2 {
         match args[1].as_str() {
             "help" => {
@@ -20,28 +20,41 @@ fn main() {
             }
             "add" => {
                 println!("using command [{}]", "add");
-                if args.len() >= 5 {
-                    let path = &args[2];
-                    let adress = &args[3];
-                    let password = &args[4];
+                if args.len() >= 3 {
+                    let path = &args[2]; 
+                    if args.len() >= 4 {
+                        let adress = &args[3];
+                        if args.len() >= 5 {
+                            let password = &args[4];
 
-                    println!("Adding password {} to the adress {}, to file {}", path, adress, password);
-                    add_password(&path, &adress, &password)
+                            println!("Adding password {} to the adress {}, to file {}", path, adress, password);
+                            add_password(&path, &adress, &password)
+                        }
+                        else {
+                            println!("Not enough arguments given, need {} but only {} found. Command found 'pathname' [{}], 'adress' [{}] but did not recieve 'pasword'", 5-2, args.len() - 2, path, adress);
+                        }
+                    } else {
+                        println!("Not enough arguments given, need {} but only {} found. Command found 'pathname' [{}] but did not recieve 'adress', 'pasword'", 5-2, args.len() - 2, path);
+                    }
                 } else {
                     println!("Not enough arguments given, need {} but only found {}. Command requires 'pathname', 'adress', 'password'.", 5-2, args.len()-2);
                 }
             },
             "get" => {
                 println!("using command [{}]", "get");
-                if args.len() >= 4 {
+                if args.len() >= 3 {
                     let path = &args[2];
-                    let adress = &args[3];
-
-                    println!("Finding password for adress {} in file {}", adress, path);
-                    let password = get_password(path, adress);
-                    match password {
-                        Some(value) => println!("Found password : [{}]", decrypt(&value)),
-                        None => println!("Could not find adress {}", adress),
+                    if args.len() >= 4 {     
+                        
+                        let adress = &args[3];
+                        println!("Finding password for adress {} in file {}", adress, path);
+                        let password = get_password(path, adress);
+                        match password {
+                            Some(value) => println!("Found password : [{}]", decrypt(&value)),
+                            None => println!("Could not find adress {}", adress),
+                        }
+                    } else {
+                        println!("Not enough arguments given, need {} but only {} found. Command found 'pathname' [{}] but did not recieve an 'adress'", 4-2, args.len() - 2, path);
                     }
                 } else {
                     println!("Not enough arguments given, need {} but only found {}. Command requires 'pathname', 'adress'.", 4-2, args.len() - 2);
@@ -64,7 +77,7 @@ fn print_help() {
 
 fn get_password(filepath: &String, adress: &String) -> Option<String> {
     let passwords = get_password_pairs(&filepath);
-    match passwords.get(adress) {
+    match passwords.get(&encrypt(adress)) {
         Some(value) => Some(String::clone(value)),
         None => None,
     }
@@ -75,10 +88,8 @@ fn get_password_pairs(filepath: &String) -> HashMap<String, String> {
     match get_passwords_vector(&filepath) {
         Ok(vector) => {
             let mut pairs: HashMap<String, String> = HashMap::new();
-            for (index, mut value) in vector.iter().enumerate() {
+            for value in vector.iter() {
                 //println!("Succesfull vecotor gotten! [{}] ==> {}", index, value);
-                let replace = value.replace("{", "").replace("}", "").replace("\"", "").replace(",", "").replace(" ", "");
-                value = &replace;
                 let splitter = value.split(":");
                 let vals: Vec<&str> = splitter.collect();
                 pairs.insert(vals[0].to_string(), vals[1].to_string());
@@ -93,7 +104,7 @@ fn get_password_pairs(filepath: &String) -> HashMap<String, String> {
 }
 
 fn add_password(filepath: &String, adress: &String, password: &String) {
-    match add_password_file(&filepath, adress, &encrypt(&password)) {
+    match add_password_file(&filepath, &encrypt(&adress), &encrypt(&password)) {
         Ok(resp) => println!("Written to file with. New Length: {}", resp),
         Err(err) => eprintln!("Could not write to file! {}", err),
     }
@@ -152,7 +163,7 @@ fn add_password_file(filepath: &String, adress: &String, password: &String) -> R
     };
     let comma = if file_content != "" { ", \n" } else { "" };
     let mut file = File::create(filepath)?;
-    let wr = file_content + comma + "{ \"" + adress + "\" : \"" + password + &String::from("\" }");
+    let wr = file_content + comma + adress + ":" + password;
     let buf = wr.as_bytes();
     file.write(buf)
 }
